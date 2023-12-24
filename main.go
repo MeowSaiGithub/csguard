@@ -35,12 +35,12 @@ func main() {
 						Usage:       "Path to the output file where the calculated checksums will be written. Supported formats: '.txt', '.json', '.yaml'.",
 						Destination: provider.SetOutputFile(),
 					},
-					//&cli.StringFlag{
-					//	Name:        "algorithm",
-					//	Value:       "",
-					//	Usage:       "language for the greeting",
-					//	Destination: provider.SetAlgorithm(),
-					//},
+					&cli.StringFlag{
+						Name:        "algorithm",
+						Value:       "md5",
+						Usage:       "Hashing algorithm for checksum calculation (options: md5, sha256; default: md5)",
+						Destination: provider.SetAlgorithm(),
+					},
 				},
 				Action: func(cCtx *cli.Context) error {
 					if err := provider.CalculateInputValidation(); err != nil {
@@ -86,6 +86,12 @@ func main() {
 						Value:       "",
 						Usage:       "Path to the output file where the validation result will be written.",
 						Destination: provider.SetOutputFile(),
+					},
+					&cli.StringFlag{
+						Name:        "algorithm",
+						Value:       "md5",
+						Usage:       "Hashing algorithm for checksum calculation (options: md5, sha256; default: md5)",
+						Destination: provider.SetAlgorithm(),
 					},
 				},
 				Action: func(cCtx *cli.Context) error {

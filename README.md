@@ -1,10 +1,11 @@
 # csguard
 
-**csguard** is a command-line interface (CLI) application written in Go for calculating and validating checksums for files and folders. The current version supports the MD5 hashing algorithm.
+**csguard** is a command-line interface (CLI) application written in Go for calculating and validating checksums for files and folders. 
+The current version supports the MD5 and SHA256 hashing algorithms.
 
 ## Features
 
-- Calculate MD5 checksum for files and folders
+- Calculate MD5, SHA256 checksum for files and folders
 - Validate checksums against provided values
 - Easy-to-use command-line interface
 
@@ -12,14 +13,14 @@
 
 ### Calculate Checksum
 
-To calculate the MD5 checksum for a file, use the following command:
+To calculate the checksum for a file, use the following command:
 
 ```bash
-csguard calculate --input-file=path/to/file.txt --output=result.txt
+csguard calculate --algorithm md5 --input-file=path/to/file.txt --output=result.txt
 ```
 OR
 ```bash
-csguard calculate --input-folder=path/to/folder --output=result.txt
+csguard calculate --algorithm sha256 --input-folder=path/to/folder --output=result.txt
 ```
 If `--output` is not provided, only console output will show.
 
@@ -30,13 +31,13 @@ Avaliable format are `.json`, `.txt`, `.yaml`.
 To validate the MD5 checksum for a file, use the following command:
 
 ```bash
-csguard validate --input-file=path/to/file.txt --checksum=checksum-value-here --output=result.txt
+csguard validate --algorithm md5 --input-file=path/to/file.txt --checksum=checksum-value-here --output=result.txt
 ```
 OR
 To validate the MD5 checksum for multiple files, use the following command:
 
 ```bash
-csguard validate --checksum-file=path/to/file.txt --output=result.txt
+csguard validate --algorithm sha256 --checksum-file=path/to/file.txt --output=result.txt
 ```
 
 Available format for `--checksum-file` is `.json`, `.txt`, `.yaml`.

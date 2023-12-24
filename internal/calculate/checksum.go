@@ -3,6 +3,7 @@ package calculate
 import (
 	"bufio"
 	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -21,7 +22,6 @@ type Checksum interface {
 	SetInputFolder() *string
 	SetOutputFile() *string
 	CalculateInputValidation() error
-	CalculateChecksum() error
 	GetOutputFile() *string
 	CreateOutput() error
 	GetChecksum() *map[string]string
@@ -30,13 +30,15 @@ type Checksum interface {
 	ValidateChecksum() error
 	CreateValidateOutputTxt() error
 	GetValidation() *map[string]string
+	CalculateChecksum() error
 
-	calculateSmallMd5(file string) (string, error)
-	calculateLargeMd5(file string) (string, error)
-	calculateMD5() error
+	calculateSmallMd5(data *[]byte) string
+	calculateLargeMd5(file *os.File) (string, error)
+	calculateSmall(file string) (string, error)
+	calculateLarge(file string) (string, error)
 	getAlgorithm() algo
-	//SetAlgorithm() *string
-	validateChecksumMd5() error
+	SetAlgorithm() *string
+	validateChecksum() error
 	loadChecksumFromFile() error
 }
 
@@ -56,6 +58,7 @@ type algo int
 
 const (
 	md5Algorithm algo = iota
+	sha256Algorithm
 )
 
 func NewChecksumProvider() Checksum {
@@ -66,31 +69,31 @@ func NewChecksumProvider() Checksum {
 	}
 }
 
-func (c *checksum) calculateSmallMd5(file string) (string, error) {
-	data, err := os.ReadFile(file)
-	if err != nil {
-		return "", err
-	}
-	cs := md5.Sum(data)
-	return hex.EncodeToString(cs[:]), nil
+func (c *checksum) calculateSmallMd5(data *[]byte) string {
+	cs := md5.Sum(*data)
+	return hex.EncodeToString(cs[:])
 }
 
-func (c *checksum) calculateLargeMd5(file string) (string, error) {
-	data, err := os.Open(file)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if err = data.Close(); err != nil {
-			log.Printf("failed to close file: %v\n", err)
-		}
-	}()
+func (c *checksum) calculateSmallSHA256(data *[]byte) string {
+	hash := sha256.Sum256(*data)
+	return hex.EncodeToString(hash[:])
+}
+
+func (c *checksum) calculateLargeMd5(file *os.File) (string, error) {
 	hash := md5.New()
-	if _, err = io.Copy(hash, data); err != nil {
+	if _, err := io.Copy(hash, file); err != nil {
 		return "", err
 	}
 	cs := hex.EncodeToString(hash.Sum(nil))
 	return cs, nil
+}
+
+func (c *checksum) calculateLargeSHA256(file *os.File) (string, error) {
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func (c *checksum) ValidateMd5(checksum, input string) bool {
@@ -112,26 +115,27 @@ func (c *checksum) SetChecksumFolder() *string {
 func (c *checksum) SetOutputFile() *string {
 	return &c.output
 }
+
 func (c *checksum) GetOutputFile() *string {
 	return &c.output
 }
 
-//func (c *checksum) SetAlgorithm() *string {
-//	return &c.algorithm
-//}
+func (c *checksum) SetAlgorithm() *string {
+	return &c.algorithm
+}
 
 func (c *checksum) getAlgorithm() algo {
 	switch c.algorithm {
 	case "md5":
 		return md5Algorithm
-	case "ssa":
-		return 2
+	case "sha256":
+		return sha256Algorithm
 	default:
 		return md5Algorithm
 	}
 }
 
-func (c *checksum) calculateMD5() error {
+func (c *checksum) CalculateChecksum() error {
 	if c.inputFolder != "" {
 		err := filepath.WalkDir(c.inputFolder, func(path string, d os.DirEntry, err error) error {
 			if err != nil {
@@ -150,10 +154,10 @@ func (c *checksum) calculateMD5() error {
 			fp := filepath.Join(filepath.Dir(c.inputFolder), path)
 
 			if fileinfo.Size() > largeFileSizeThreshold {
-				c.checksum[fp], err = c.calculateLargeMd5(path)
+				c.checksum[fp], err = c.calculateLarge(path)
 				return err
 			}
-			c.checksum[fp], err = c.calculateSmallMd5(path)
+			c.checksum[fp], err = c.calculateSmall(path)
 			return err
 		})
 		return err
@@ -164,21 +168,45 @@ func (c *checksum) calculateMD5() error {
 		return err
 	}
 	if fileinfo.Size() > largeFileSizeThreshold {
-		c.checksum[c.inputFile], err = c.calculateLargeMd5(c.inputFile)
+		c.checksum[c.inputFile], err = c.calculateLarge(c.inputFile)
 	} else {
-		c.checksum[c.inputFile], err = c.calculateSmallMd5(c.inputFile)
+		c.checksum[c.inputFile], err = c.calculateSmall(c.inputFile)
 	}
 	return err
 }
 
-func (c *checksum) CalculateChecksum() error {
+func (c *checksum) calculateSmall(file string) (string, error) {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
 	switch c.getAlgorithm() {
 	case md5Algorithm:
-		return c.calculateMD5()
-	case 2:
-		return nil
+		return c.calculateSmallMd5(&data), nil
+	case sha256Algorithm:
+		return c.calculateSmallSHA256(&data), nil
 	default:
-		return c.calculateMD5()
+		return "", fmt.Errorf("invalid algorithm")
+	}
+}
+
+func (c *checksum) calculateLarge(file string) (string, error) {
+	data, err := os.Open(file)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err = data.Close(); err != nil {
+			log.Printf("failed to close file: %v\n", err)
+		}
+	}()
+	switch c.getAlgorithm() {
+	case md5Algorithm:
+		return c.calculateLargeMd5(data)
+	case sha256Algorithm:
+		return c.calculateLargeSHA256(data)
+	default:
+		return "", nil
 	}
 }
 
@@ -245,7 +273,7 @@ func (c *checksum) ValidateChecksum() error {
 			return err
 		}
 	}
-	err := c.validateChecksumMd5()
+	err := c.validateChecksum()
 	return err
 }
 
@@ -350,9 +378,9 @@ func loadFromYaml(filename string) (map[string]string, error) {
 	return mdata, err
 }
 
-func (c *checksum) validateChecksumMd5() error {
+func (c *checksum) validateChecksum() error {
 	if len(c.validateChecksumMap) != 0 {
-		for f, _ := range c.validateChecksumMap {
+		for f := range c.validateChecksumMap {
 
 			f = filepath.Clean(f)
 
@@ -370,9 +398,9 @@ func (c *checksum) validateChecksumMd5() error {
 			}
 
 			if fileinfo.Size() > largeFileSizeThreshold {
-				c.checksum[f], err = c.calculateLargeMd5(f)
+				c.checksum[f], err = c.calculateLarge(f)
 			} else {
-				c.checksum[f], err = c.calculateSmallMd5(f)
+				c.checksum[f], err = c.calculateSmall(f)
 			}
 			if err != nil {
 				return err
