@@ -22,3 +22,12 @@ go.work
 /folder1/
 
 dist/
+/csguard.exe
+/f610zrj8bn281.png
+/test.json
+/val.yaml
+/test.txt
+/val.txt
+/val.json
+/test.yaml
+/.goreleaser.yaml
