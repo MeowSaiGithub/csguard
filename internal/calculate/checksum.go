@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/md5"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -32,14 +33,14 @@ type Checksum interface {
 	GetValidation() *map[string]string
 	CalculateChecksum() error
 
-	calculateSmallMd5(data *[]byte) string
-	calculateLargeMd5(file *os.File) (string, error)
-	calculateSmall(file string) (string, error)
-	calculateLarge(file string) (string, error)
-	getAlgorithm() algo
-	SetAlgorithm() *string
-	validateChecksum() error
-	loadChecksumFromFile() error
+	//calculateSmallMd5(data *[]byte) string
+	//calculateLargeMd5(file *os.File) (string, error)
+	//calculateSmall(file string) (string, error)
+	//calculateLarge(file string) (string, error)
+	//getAlgorithm() algo
+	//SetAlgorithm() *string
+	//validateChecksum() error
+	//loadChecksumFromFile() error
 }
 
 type checksum struct {
@@ -59,6 +60,7 @@ type algo int
 const (
 	md5Algorithm algo = iota
 	sha256Algorithm
+	sha512Algorithm
 )
 
 func NewChecksumProvider() Checksum {
@@ -69,31 +71,58 @@ func NewChecksumProvider() Checksum {
 	}
 }
 
-func (c *checksum) calculateSmallMd5(data *[]byte) string {
-	cs := md5.Sum(*data)
-	return hex.EncodeToString(cs[:])
-}
-
-func (c *checksum) calculateSmallSHA256(data *[]byte) string {
-	hash := sha256.Sum256(*data)
-	return hex.EncodeToString(hash[:])
-}
-
-func (c *checksum) calculateLargeMd5(file *os.File) (string, error) {
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
+func (c *checksum) CalculateInputValidation() error {
+	if c.inputFile == "" && c.inputFolder == "" {
+		return fmt.Errorf("either --input-file or --input-folder must be set")
 	}
-	cs := hex.EncodeToString(hash.Sum(nil))
-	return cs, nil
+	if c.inputFile != "" {
+		fileInfo, err := os.Stat(c.inputFile)
+		if err != nil {
+			return fmt.Errorf("error checking input file: %s", err)
+		}
+		if fileInfo.IsDir() {
+			return fmt.Errorf("--input-file must be a file, not a directory. use --input-folder for directory")
+		}
+	}
+	if c.inputFolder != "" {
+		fileInfo, err := os.Stat(c.inputFile)
+		if err != nil {
+			return fmt.Errorf("error checking input folder: %s", err)
+		}
+		if fileInfo.IsDir() {
+			return fmt.Errorf("--input-folder must be a folder, not a file. use --input-file for single file")
+		}
+	}
+	return nil
 }
 
-func (c *checksum) calculateLargeSHA256(file *os.File) (string, error) {
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
+func (c *checksum) ValidateInputValidation(cs string) error {
+	if c.inputFile == "" && c.checksumFile == "" {
+		return fmt.Errorf("either --input-file or --checksum-file must be set")
 	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	if c.inputFile != "" {
+		if cs == "" {
+			return fmt.Errorf("--checksum is empty")
+		}
+		fileInfo, err := os.Stat(c.inputFile)
+		if err != nil {
+			return fmt.Errorf("error checking input file: %s", err)
+		}
+		if fileInfo.IsDir() {
+			return fmt.Errorf("--input-file must be a file, not a directory")
+		}
+		c.validateChecksumMap[c.inputFile] = cs
+	}
+	if c.checksumFile != "" {
+		fileInfo, err := os.Stat(c.checksumFile)
+		if err != nil {
+			return fmt.Errorf("error checking checksum-file: %s", err)
+		}
+		if fileInfo.IsDir() {
+			return fmt.Errorf("--checksum-file must be a file, not a directory")
+		}
+	}
+	return nil
 }
 
 func (c *checksum) ValidateMd5(checksum, input string) bool {
@@ -122,17 +151,6 @@ func (c *checksum) GetOutputFile() *string {
 
 func (c *checksum) SetAlgorithm() *string {
 	return &c.algorithm
-}
-
-func (c *checksum) getAlgorithm() algo {
-	switch c.algorithm {
-	case "md5":
-		return md5Algorithm
-	case "sha256":
-		return sha256Algorithm
-	default:
-		return md5Algorithm
-	}
 }
 
 func (c *checksum) CalculateChecksum() error {
@@ -185,6 +203,8 @@ func (c *checksum) calculateSmall(file string) (string, error) {
 		return c.calculateSmallMd5(&data), nil
 	case sha256Algorithm:
 		return c.calculateSmallSHA256(&data), nil
+	case sha512Algorithm:
+		return c.calculateSmallSHA512(&data), nil
 	default:
 		return "", fmt.Errorf("invalid algorithm")
 	}
@@ -205,6 +225,8 @@ func (c *checksum) calculateLarge(file string) (string, error) {
 		return c.calculateLargeMd5(data)
 	case sha256Algorithm:
 		return c.calculateLargeSHA256(data)
+	case sha512Algorithm:
+		return c.calculateLargeSHA512(data)
 	default:
 		return "", nil
 	}
@@ -457,56 +479,55 @@ type fileStruct struct {
 	Value    string `json:"value,omitempty" yaml:"value,omitempty"`
 }
 
-func (c *checksum) CalculateInputValidation() error {
-	if c.inputFile == "" && c.inputFolder == "" {
-		return fmt.Errorf("either --input-file or --input-folder must be set")
-	}
-	if c.inputFile != "" {
-		fileInfo, err := os.Stat(c.inputFile)
-		if err != nil {
-			return fmt.Errorf("error checking input file: %s", err)
-		}
-		if fileInfo.IsDir() {
-			return fmt.Errorf("--input-file must be a file, not a directory. use --input-folder for directory")
-		}
-	}
-	if c.inputFolder != "" {
-		fileInfo, err := os.Stat(c.inputFile)
-		if err != nil {
-			return fmt.Errorf("error checking input folder: %s", err)
-		}
-		if fileInfo.IsDir() {
-			return fmt.Errorf("--input-folder must be a folder, not a file. use --input-file for single file")
-		}
-	}
-	return nil
+func (c *checksum) calculateSmallMd5(data *[]byte) string {
+	cs := md5.Sum(*data)
+	return hex.EncodeToString(cs[:])
 }
 
-func (c *checksum) ValidateInputValidation(cs string) error {
-	if c.inputFile == "" && c.checksumFile == "" {
-		return fmt.Errorf("either --input-file or --checksum-file must be set")
+func (c *checksum) calculateSmallSHA256(data *[]byte) string {
+	hash := sha256.Sum256(*data)
+	return hex.EncodeToString(hash[:])
+}
+
+func (c *checksum) calculateSmallSHA512(data *[]byte) string {
+	hash := sha512.Sum512(*data)
+	return hex.EncodeToString(hash[:])
+}
+
+func (c *checksum) calculateLargeMd5(file *os.File) (string, error) {
+	hash := md5.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
 	}
-	if c.inputFile != "" {
-		if cs == "" {
-			return fmt.Errorf("--checksum is empty")
-		}
-		fileInfo, err := os.Stat(c.inputFile)
-		if err != nil {
-			return fmt.Errorf("error checking input file: %s", err)
-		}
-		if fileInfo.IsDir() {
-			return fmt.Errorf("--input-file must be a file, not a directory")
-		}
-		c.validateChecksumMap[c.inputFile] = cs
+	cs := hex.EncodeToString(hash.Sum(nil))
+	return cs, nil
+}
+
+func (c *checksum) calculateLargeSHA256(file *os.File) (string, error) {
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
 	}
-	if c.checksumFile != "" {
-		fileInfo, err := os.Stat(c.checksumFile)
-		if err != nil {
-			return fmt.Errorf("error checking checksum-file: %s", err)
-		}
-		if fileInfo.IsDir() {
-			return fmt.Errorf("--checksum-file must be a file, not a directory")
-		}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func (c *checksum) calculateLargeSHA512(file *os.File) (string, error) {
+	hash := sha512.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
 	}
-	return nil
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func (c *checksum) getAlgorithm() algo {
+	switch c.algorithm {
+	case "md5":
+		return md5Algorithm
+	case "sha256":
+		return sha256Algorithm
+	case "sha512":
+		return sha512Algorithm
+	default:
+		return md5Algorithm
+	}
 }
