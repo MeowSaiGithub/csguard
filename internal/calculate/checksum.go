@@ -32,13 +32,13 @@ type Checksum interface {
 	CreateValidateOutputTxt() error
 	GetValidation() *map[string]string
 	CalculateChecksum() error
+	SetAlgorithm() *string
 
 	//calculateSmallMd5(data *[]byte) string
 	//calculateLargeMd5(file *os.File) (string, error)
 	//calculateSmall(file string) (string, error)
 	//calculateLarge(file string) (string, error)
 	//getAlgorithm() algo
-	//SetAlgorithm() *string
 	//validateChecksum() error
 	//loadChecksumFromFile() error
 }
