@@ -20,9 +20,9 @@
 # Go workspace file
 go.work
 /folder1/
+.idea
 
 dist/
-/csguard.exe
 /f610zrj8bn281.png
 /test.json
 /val.yaml
