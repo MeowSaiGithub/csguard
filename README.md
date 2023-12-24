@@ -76,6 +76,8 @@ f610zrj8bn281.png 654b0435d0b202ac1654b79d088d4be5
 
 Available format for `--output` are `.json`, `.txt`, `.yaml`.
 
+Please feel free to request for new algorithm or code improvements.
+
 ## License
 
 The MIT License (MIT)
