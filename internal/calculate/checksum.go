@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"gopkg.in/yaml.v3"
 	"hash/crc32"
 	"io"
@@ -24,24 +25,14 @@ type Checksum interface {
 	SetInputFolder() *string
 	SetOutputFile() *string
 	CalculateInputValidation() error
-	GetOutputFile() *string
-	CreateOutput() error
+	CreateCalculateOutput() error
 	GetChecksum() *map[string]string
 	SetChecksumFolder() *string
 	ValidateInputValidation(cs string) error
 	ValidateChecksum() error
-	CreateValidateOutputTxt() error
-	GetValidation() *map[string]string
+	CreateValidateOutput() error
 	CalculateChecksum() error
 	SetAlgorithm() *string
-
-	//calculateSmallMd5(data *[]byte) string
-	//calculateLargeMd5(file *os.File) (string, error)
-	//calculateSmall(file string) (string, error)
-	//calculateLarge(file string) (string, error)
-	//getAlgorithm() algo
-	//validateChecksum() error
-	//loadChecksumFromFile() error
 }
 
 type checksum struct {
@@ -147,10 +138,6 @@ func (c *checksum) SetOutputFile() *string {
 	return &c.output
 }
 
-func (c *checksum) GetOutputFile() *string {
-	return &c.output
-}
-
 func (c *checksum) SetAlgorithm() *string {
 	return &c.algorithm
 }
@@ -238,7 +225,7 @@ func (c *checksum) calculateLarge(file string) (string, error) {
 	}
 }
 
-func (c *checksum) CreateOutput() error {
+func (c *checksum) CreateCalculateOutput() error {
 	ext := strings.Split(c.output, ".")
 	switch ext[len(ext)-1] {
 	case "txt":
@@ -247,6 +234,8 @@ func (c *checksum) CreateOutput() error {
 		return createOutputJson(c.output, c.checksum)
 	case "yaml":
 		return createOutputYaml(c.output, c.checksum)
+	case "table":
+		return createOutputTable(c.checksum)
 	default:
 		return fmt.Errorf("invalid output format. supported format 'txt', 'json', 'yaml'")
 	}
@@ -273,7 +262,7 @@ func createOutputTxt(fileName string, data *map[string]string) error {
 	return writer.Flush()
 }
 
-func (c *checksum) CreateValidateOutputTxt() error {
+func (c *checksum) CreateValidateOutput() error {
 	ext := strings.Split(c.output, ".")
 	switch ext[len(ext)-1] {
 	case "txt":
@@ -282,17 +271,15 @@ func (c *checksum) CreateValidateOutputTxt() error {
 		return createOutputJson(c.output, c.validateMap)
 	case "yaml":
 		return createOutputYaml(c.output, c.validateMap)
+	case "table":
+		return createOutputTable(c.validateMap)
 	default:
-		return fmt.Errorf("invalid output format. supported format 'txt', 'json', 'yaml'")
+		return fmt.Errorf("invalid output format. supported format 'txt', 'json', 'yaml' and table")
 	}
 }
 
 func (c *checksum) GetChecksum() *map[string]string {
 	return &c.checksum
-}
-
-func (c *checksum) GetValidation() *map[string]string {
-	return &c.validateMap
 }
 
 func (c *checksum) ValidateChecksum() error {
@@ -478,6 +465,19 @@ func createOutputYaml(filename string, mdata map[string]string) error {
 	}
 	err = os.WriteFile(filename, ydata, 0644)
 	return err
+}
+
+func createOutputTable(mdata map[string]string) error {
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"#", "file_name", "value"})
+	i := 1
+	for f, c := range mdata {
+		t.AppendRow(table.Row{i, f, c})
+		i++
+	}
+	t.Render()
+	return nil
 }
 
 type fileStruct struct {

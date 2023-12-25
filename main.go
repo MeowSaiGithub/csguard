@@ -2,7 +2,6 @@ package main
 
 import (
 	"csguard/internal/calculate"
-	"fmt"
 	"github.com/urfave/cli/v2"
 	"os"
 )
@@ -31,14 +30,14 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:        "output",
-						Value:       "",
-						Usage:       "Path to the output file where the calculated checksums will be written. Supported formats: '.txt', '.json', '.yaml'.",
+						Value:       "table",
+						Usage:       "Format/Path to the output file where the calculated checksums will be written. Supported formats: '.txt', '.json', '.yaml', 'table'. Default will be 'table'",
 						Destination: provider.SetOutputFile(),
 					},
 					&cli.StringFlag{
 						Name:        "algorithm",
 						Value:       "md5",
-						Usage:       "Hashing algorithm for checksum calculation (options: md5, sha256; default: md5)",
+						Usage:       "Hashing algorithm for checksum calculation. (options: 'md5', 'sha256', 'sha512', 'crc'; default: md5)",
 						Destination: provider.SetAlgorithm(),
 					},
 				},
@@ -49,13 +48,8 @@ func main() {
 					if err := provider.CalculateChecksum(); err != nil {
 						return cli.Exit(err.Error(), 1)
 					}
-					if *provider.GetOutputFile() != "" {
-						if err := provider.CreateOutput(); err != nil {
-							return cli.Exit(err.Error(), 1)
-						}
-					}
-					for file, cs := range *provider.GetChecksum() {
-						fmt.Printf("%s %s\n", file, cs)
+					if err := provider.CreateCalculateOutput(); err != nil {
+						return cli.Exit(err.Error(), 1)
 					}
 					return nil
 				},
@@ -83,14 +77,14 @@ func main() {
 					},
 					&cli.StringFlag{
 						Name:        "output",
-						Value:       "",
-						Usage:       "Path to the output file where the validation result will be written.",
+						Value:       "table",
+						Usage:       "Format/Path to the output file where the validation result will be written. Supported formats: '.txt', '.json', '.yaml', 'table'. Default will be 'table'",
 						Destination: provider.SetOutputFile(),
 					},
 					&cli.StringFlag{
 						Name:        "algorithm",
 						Value:       "md5",
-						Usage:       "Hashing algorithm for checksum calculation (options: md5, sha256; default: md5)",
+						Usage:       "Hashing algorithm for checksum calculation (options: 'md5', 'sha256', 'sha512', 'crc'; default: md5)",
 						Destination: provider.SetAlgorithm(),
 					},
 				},
@@ -101,13 +95,8 @@ func main() {
 					if err := provider.ValidateChecksum(); err != nil {
 						return cli.Exit(err.Error(), 1)
 					}
-					if *provider.GetOutputFile() != "" {
-						if err := provider.CreateValidateOutputTxt(); err != nil {
-							return cli.Exit(err.Error(), 1)
-						}
-					}
-					for file, ch := range *provider.GetValidation() {
-						fmt.Printf("%s %v\n", file, ch)
+					if err := provider.CreateValidateOutput(); err != nil {
+						return cli.Exit(err.Error(), 1)
 					}
 					return nil
 				},

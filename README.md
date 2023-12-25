@@ -24,9 +24,9 @@ OR
 ```bash
 csguard calculate --algorithm sha256 --input-folder=path/to/folder --output=result.txt
 ```
-If `--output` is not provided, only console output will show.
+If `--output` is not provided, `table` format will be shown.
 
-Available format are `.json`, `.txt`, `.yaml`.
+Available format are `.json`, `.txt`, `.yaml` and `table`.
 
 ### Validate Checksum
 
