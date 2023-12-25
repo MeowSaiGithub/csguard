@@ -1,7 +1,7 @@
 # csguard
 
 **csguard** is a command-line interface (CLI) application written in Go for calculating and validating checksums for files and folders. 
-The current version supports the MD5,SHA256 and SHA512 hashing algorithms.
+The current version supports the MD5,SHA256, SHA512 and CRC hashing algorithms.
 
 ## Features
 
@@ -15,7 +15,7 @@ The current version supports the MD5,SHA256 and SHA512 hashing algorithms.
 
 To calculate the checksum for a file, use the following command:
 
-Available `-algorithm` values are `md5`, `sha256` and `sha512`. If none are provided, default will be `md5`
+Available `-algorithm` values are `md5`, `sha256`, `sha512` and `crc`. If none are provided, default will be `md5`
 
 ```bash
 csguard calculate --algorithm md5 --input-file=path/to/file.txt --output=result.txt
@@ -76,7 +76,7 @@ f610zrj8bn281.png 654b0435d0b202ac1654b79d088d4be5
 
 Available format for `--output` are `.json`, `.txt`, `.yaml`.
 
-Please feel free to request for new algorithm or code improvements.
+//// Please feel free to request for new algorithm or code improvements.
 
 ## License
 

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
+	"hash/crc32"
 	"io"
 	"log"
 	"os"
@@ -61,6 +62,7 @@ const (
 	md5Algorithm algo = iota
 	sha256Algorithm
 	sha512Algorithm
+	crcAlgorithm
 )
 
 func NewChecksumProvider() Checksum {
@@ -205,6 +207,8 @@ func (c *checksum) calculateSmall(file string) (string, error) {
 		return c.calculateSmallSHA256(&data), nil
 	case sha512Algorithm:
 		return c.calculateSmallSHA512(&data), nil
+	case crcAlgorithm:
+		return c.calculateSmallCRC(&data), nil
 	default:
 		return "", fmt.Errorf("invalid algorithm")
 	}
@@ -227,6 +231,8 @@ func (c *checksum) calculateLarge(file string) (string, error) {
 		return c.calculateLargeSHA256(data)
 	case sha512Algorithm:
 		return c.calculateLargeSHA512(data)
+	case crcAlgorithm:
+		return c.calculateLargeCRC(data)
 	default:
 		return "", nil
 	}
@@ -494,6 +500,11 @@ func (c *checksum) calculateSmallSHA512(data *[]byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
+func (c *checksum) calculateSmallCRC(data *[]byte) string {
+	hash := crc32.ChecksumIEEE(*data)
+	return fmt.Sprintf("%08x", hash)
+}
+
 func (c *checksum) calculateLargeMd5(file *os.File) (string, error) {
 	hash := md5.New()
 	if _, err := io.Copy(hash, file); err != nil {
@@ -519,6 +530,14 @@ func (c *checksum) calculateLargeSHA512(file *os.File) (string, error) {
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
+func (c *checksum) calculateLargeCRC(file *os.File) (string, error) {
+	hash := crc32.NewIEEE()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%08x", hash.Sum32()), nil
+}
+
 func (c *checksum) getAlgorithm() algo {
 	switch c.algorithm {
 	case "md5":
@@ -527,6 +546,8 @@ func (c *checksum) getAlgorithm() algo {
 		return sha256Algorithm
 	case "sha512":
 		return sha512Algorithm
+	case "crc":
+		return crcAlgorithm
 	default:
 		return md5Algorithm
 	}
